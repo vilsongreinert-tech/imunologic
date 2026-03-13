@@ -1,5 +1,7 @@
 streamlit
-ollama
-pypdf
+openai
+langchain
+langchain-community
+langchain-openai
 faiss-cpu
-numpy
+pypdf
