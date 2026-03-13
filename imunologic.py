@@ -1,88 +1,53 @@
-import os
 import streamlit as st
-import numpy as np
-import faiss
-
-from pypdf import PdfReader
-from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-st.title("🧠 Professor de Medicina IA")
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+st.set_page_config(page_title="ChatGPT Médico")
 
-# ---------- Ler PDFs ----------
+st.title("🩺 ChatGPT Médico")
 
-def load_pdfs(folder="pdfs"):
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    textos = []
+for msg in st.session_state.messages:
+    st.chat_message(msg["role"]).write(msg["content"])
 
-    for file in os.listdir(folder):
+prompt = st.chat_input("pergunte algo sobre medicina...")
 
-        if file.endswith(".pdf"):
+if prompt:
 
-            reader = PdfReader(os.path.join(folder, file))
-
-            for page in reader.pages:
-
-                txt = page.extract_text()
-
-                if txt:
-                    textos.append(txt)
-
-    return textos
-
-
-# ---------- Criar banco vetorial ----------
-
-@st.cache_resource
-def build_index():
-
-    textos = load_pdfs()
-
-    embeddings = model.encode(textos)
-
-    dimension = embeddings.shape[1]
-
-    index = faiss.IndexFlatL2(dimension)
-
-    index.add(np.array(embeddings))
-
-    return index, textos
-
-
-index, textos = build_index()
-
-# ---------- Interface ----------
-
-pergunta = st.text_input("Pergunte sobre medicina:")
-
-if pergunta:
-
-    q_embed = model.encode([pergunta])
-
-    D, I = index.search(np.array(q_embed), k=3)
-
-    contexto = ""
-
-    for i in I[0]:
-        contexto += textos[i] + "\n"
-
-    prompt = f"""
-    Use o conteúdo abaixo para responder.
-
-    Conteúdo:
-    {contexto}
-
-    Pergunta:
-    {pergunta}
-    """
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content":prompt}]
+    st.session_state.messages.append(
+        {"role": "user", "content": prompt}
     )
 
-    st.write(response.choices[0].message.content)
+    st.chat_message("user").write(prompt)
+
+    system_prompt = """
+    Você é um assistente médico educacional.
+    Responda com base em medicina baseada em evidências.
+    Explique conceitos de forma clara para estudantes de medicina.
+    """
+
+    messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
+
+    try:
+
+       response = client.chat.completions.create(
+           model="gpt-4o-mini",
+           messages=messages
+       )
+
+       reply = response.choices[0].message.content
+
+       st.session_state.messages.append(
+          {"role": "assistant", "content": reply}
+       )
+
+       st.chat_message("assistant").write(reply)
+
+    except Exception as e:
+        st.error("Erro ao acessar a API. Verifique limites ou créditos.")
+
+ 
