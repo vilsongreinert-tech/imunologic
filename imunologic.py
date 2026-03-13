@@ -1,7 +1,9 @@
 import streamlit as st
 from openai import OpenAI
 
-client = OpenAI(api_key="SUA_API_KEY")
+client = OpenAI(
+    api_key=os.environ["OPENAI_API_KEY"]
+)
 
 st.set_page_config(page_title="ChatGPT Médico da Cami")
 
@@ -41,5 +43,6 @@ if prompt:
     st.session_state.messages.append(
         {"role": "assistant", "content": reply}
     )
+
 
     st.chat_message("assistant").write(reply)
