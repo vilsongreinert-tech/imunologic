@@ -35,22 +35,27 @@ if prompt:
 
     messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
 
-       try:
+    try:
 
        response = client.chat.completions.create(
            model="gpt-4o-mini",
            messages=messages
        )
 
-      reply = response.choices[0].message.content
-      st.session_state.messages.append(
+       reply = response.choices[0].message.content
+
+       st.session_state.messages.append(
           {"role": "assistant", "content": reply}
-      )
+       )
 
-      st.chat_message("assistant").write(reply)
+       st.chat_message("assistant").write(reply)
 
-      except Exception as e:
+    except Exception as e:
         st.error("Erro ao acessar a API. Verifique limites ou créditos.")
+
+ 
+
+
 
 
 
