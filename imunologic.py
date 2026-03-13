@@ -1,67 +1,77 @@
 import os
 import streamlit as st
-from openai import OpenAI
-from pypdf import PdfReader
+import numpy as np
+import faiss
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
+from pypdf import PdfReader
+from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-st.title("📚 Professor de Medicina com IA")
+st.title("🧠 Professor de Medicina IA")
 
-# Ler todos os PDFs
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# ---------- Ler PDFs ----------
+
 def load_pdfs(folder="pdfs"):
-    text = ""
+
+    textos = []
+
     for file in os.listdir(folder):
+
         if file.endswith(".pdf"):
+
             reader = PdfReader(os.path.join(folder, file))
+
             for page in reader.pages:
-                content = page.extract_text()
-                if content:
-                    text += content
-    return text
+
+                txt = page.extract_text()
+
+                if txt:
+                    textos.append(txt)
+
+    return textos
 
 
-# Dividir texto em pedaços
-def split_text(text):
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50
-    )
-    return splitter.split_text(text)
+# ---------- Criar banco vetorial ----------
 
-
-# Criar banco vetorial
 @st.cache_resource
-def create_vector_db():
+def build_index():
 
-    text = load_pdfs()
+    textos = load_pdfs()
 
-    chunks = split_text(text)
+    embeddings = model.encode(textos)
 
-    embeddings = OpenAIEmbeddings(
-        openai_api_key=os.environ["OPENAI_API_KEY"]
-    )
+    dimension = embeddings.shape[1]
 
-    db = FAISS.from_texts(chunks, embeddings)
+    index = faiss.IndexFlatL2(dimension)
 
-    return db
+    index.add(np.array(embeddings))
+
+    return index, textos
 
 
-db = create_vector_db()
+index, textos = build_index()
 
-pergunta = st.text_input("Pergunte algo sobre medicina:")
+# ---------- Interface ----------
+
+pergunta = st.text_input("Pergunte sobre medicina:")
 
 if pergunta:
 
-    docs = db.similarity_search(pergunta, k=3)
+    q_embed = model.encode([pergunta])
 
-    contexto = "\n".join([d.page_content for d in docs])
+    D, I = index.search(np.array(q_embed), k=3)
+
+    contexto = ""
+
+    for i in I[0]:
+        contexto += textos[i] + "\n"
 
     prompt = f"""
-    Use o conteúdo abaixo para responder a pergunta.
+    Use o conteúdo abaixo para responder.
 
     Conteúdo:
     {contexto}
@@ -72,15 +82,7 @@ if pergunta:
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role":"user","content":prompt}]
     )
 
-    resposta = response.choices[0].message.content
-
-    st.write(resposta)
-    
-
-
-
-
-
+    st.write(response.choices[0].message.content)
