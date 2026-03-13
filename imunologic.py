@@ -3,7 +3,7 @@ import streamlit as st
 from openai import OpenAI
 from pypdf import PdfReader
 
-from langchain.text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
@@ -79,6 +79,7 @@ if pergunta:
 
     st.write(resposta)
     
+
 
 
 
