@@ -1,61 +1,84 @@
+import os
 import streamlit as st
 from openai import OpenAI
-import os
-from openai import OpenAI
+from pypdf import PdfReader
 
-client = OpenAI(
-    api_key=os.environ["OPENAI_API_KEY"]
-)
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 
-st.set_page_config(page_title="ChatGPT Médico da Cami")
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-st.title("🩺 ChatGPT Médico da Cami")
+st.title("📚 Professor de Medicina com IA")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Ler todos os PDFs
+def load_pdfs(folder="pdfs"):
+    text = ""
+    for file in os.listdir(folder):
+        if file.endswith(".pdf"):
+            reader = PdfReader(os.path.join(folder, file))
+            for page in reader.pages:
+                content = page.extract_text()
+                if content:
+                    text += content
+    return text
 
-for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
 
-prompt = st.chat_input("Cami: pergunte algo sobre medicina...")
+# Dividir texto em pedaços
+def split_text(text):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
+    )
+    return splitter.split_text(text)
 
-if prompt:
 
-    st.session_state.messages.append(
-        {"role": "user", "content": prompt}
+# Criar banco vetorial
+@st.cache_resource
+def create_vector_db():
+
+    text = load_pdfs()
+
+    chunks = split_text(text)
+
+    embeddings = OpenAIEmbeddings(
+        openai_api_key=os.environ["OPENAI_API_KEY"]
     )
 
-    st.chat_message("user").write(prompt)
+    db = FAISS.from_texts(chunks, embeddings)
 
-    system_prompt = """
-    Você é um assistente médico educacional.
-    Responda com base em medicina baseada em evidências.
-    Explique conceitos de forma clara para estudantes de medicina.
+    return db
+
+
+db = create_vector_db()
+
+pergunta = st.text_input("Pergunte algo sobre medicina:")
+
+if pergunta:
+
+    docs = db.similarity_search(pergunta, k=3)
+
+    contexto = "\n".join([d.page_content for d in docs])
+
+    prompt = f"""
+    Use o conteúdo abaixo para responder a pergunta.
+
+    Conteúdo:
+    {contexto}
+
+    Pergunta:
+    {pergunta}
     """
 
-    messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
 
-    try:
+    resposta = response.choices[0].message.content
 
-       response = client.chat.completions.create(
-           model="gpt-4o-mini",
-           messages=messages
-       )
-
-       reply = response.choices[0].message.content
-
-       st.session_state.messages.append(
-          {"role": "assistant", "content": reply}
-       )
-
-       st.chat_message("assistant").write(reply)
-
-    except Exception as e:
-        st.error("Erro ao acessar a API. Verifique limites ou créditos.")
-
- 
-
-
+    st.write(resposta)
+    
 
 
 
