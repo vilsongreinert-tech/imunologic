@@ -1,5 +1,5 @@
-streamlit
-openai
+streamlit>=1.30
+openai>=1.0
 pypdf
 sentence-transformers
 faiss-cpu
