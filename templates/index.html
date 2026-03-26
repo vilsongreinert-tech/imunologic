@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!--<link rel="stylesheet" href="static\style.css">-->
+    <title>Consulta de Saldo</title>
+</head>
+<body>
+    <h2>Consultar Produto</h2>
+    
+    <form method="POST">
+        <input type="text" name="referencia" placeholder="Digite a Ref. (ex: HRG#KG2X)" required>
+        <button type="submit">Consultar</button>
+    </form>
+
+    <hr>
+
+    {% if produto %}
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Descrição (DESMAT)</th>
+                <th>Especificação/Saldo (ESPMAT)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ produto[0] }}</td>
+                <td>{{ produto[1] }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% elif request.method == 'POST' %}
+    <p>Produto não encontrado. ❌</p>
+    {% endif %}
+</body>
+</html>
